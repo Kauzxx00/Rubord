@@ -44,12 +44,12 @@ module Rubord
       @member                 = Rubord::Member.new(member_data, client)
     end
 
-    def reply(content = nil, embeds: nil, components: nil, ephemeral: false)
+    def reply(content = nil, embeds: nil, components: nil, flags: nil)
       data = {}
       data[:content] = content if content
       data[:embeds] = Array(embeds).map(&:to_h) if embeds
       data[:components] = Array(components).map(&:to_h) if components
-      data[:flags] = 64 if ephemeral
+      data[:flags] = flags
 
       client.rest.interactions_response(
         @id,
@@ -59,7 +59,7 @@ module Rubord
       )
     end
 
-    def edit(content = nil, embeds: nil, components: nil, ephemeral: false)
+    def edit(content = nil, embeds: nil, components: nil, flags: nil)
       client.rest.interaction_edit(
         @application_id,
         @token,
@@ -70,9 +70,9 @@ module Rubord
       )
     end
 
-    def defer(ephemeral: false)
+    def defer(flags: nil)
       data = {}
-      data[:flags] = 64 if ephemeral
+      data[:flags] = flags
 
       client.rest.interactions_response(
         @id,
@@ -82,7 +82,7 @@ module Rubord
       )
     end
 
-    def defer_update
+    def deferUpdate
       client.rest.interactions_response(
         @id,
         @token,
@@ -91,11 +91,7 @@ module Rubord
     end
 
     def update(content = nil, embeds: nil, components: nil)
-      client.rest.interactions_response(
-        @id,
-        @token,
-        type: 6
-      )
+      deferUpdate
 
       client.rest.interaction_edit(
         @application_id,
@@ -103,6 +99,17 @@ module Rubord
         content: content,
         embeds: embeds,
         components: components
+      )
+    end
+
+    def followUp(content = nil, embeds: nil, components: nil, flags: nil)
+      client.rest.interaction_followup(
+        @application_id,
+        @token,
+        content: content,
+        embeds: embeds,
+        components: components,
+        flags: flags
       )
     end
 

@@ -1,7 +1,3 @@
-require_relative "../components/button"
-require_relative "../components/select_menu"
-require_relative "../components/modal"
-
 module Rubord
   class ActionRow
     attr_accessor :type,

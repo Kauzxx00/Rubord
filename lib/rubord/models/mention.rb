@@ -26,7 +26,7 @@ module Rubord
             channel
           end
         else
-          Rubord.Parser.channel_mention(data["content"] || "").map do |channel_id|
+          Rubord.Parser.channel_mentions(data["content"] || "").map do |channel_id|
             client.channels.get(channel_id) || Rubord::Channel.new({ "id" => channel_id }, client)
           end
         end

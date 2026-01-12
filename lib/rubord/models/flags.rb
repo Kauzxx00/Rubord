@@ -38,6 +38,10 @@ module Rubord
     }.freeze
 
     ALL = FLAGS.values.reduce(0, :|)
+
+    def self.combine(*perms)
+      perms.map { |p| FLAGS[p] }.compact.reduce(0, :|)
+    end
   end
 
   module Intents
@@ -61,6 +65,30 @@ module Rubord
       guild_scheduled_events:        1 << 16,
       auto_moderation_configuration: 1 << 20,
       auto_moderation_execution:     1 << 21
-    }
+    }.freeze
+
+    def self.combine(*intents)
+      intents.map { |i| FLAGS[i] }.compact.reduce(0, :|)
+    end
+  end
+
+  module MessageFlags
+    FLAGS = {
+      crossposted:            1 << 0,
+      is_crosspost:           1 << 1,
+      suppress_embeds:        1 << 2,
+      source_message_deleted: 1 << 3,
+      urgent:                 1 << 4,
+      ephemeral:              1 << 6,
+      loading:                1 << 7,
+      components_v2:          1 << 15
+    }.freeze
+
+    def self.combine(*flags)
+      flags.map { |f| FLAGS[f] }.compact.reduce(0, :|)
+    end
+
+    EPHEMERAL     = FLAGS[:ephemeral]
+    COMPONENTS_V2 = FLAGS[:components_v2]
   end
 end

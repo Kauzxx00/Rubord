@@ -1,4 +1,4 @@
-require_relative "../models/action_row"
+require_relative "../models/components"
 require_relative "../models/channel"
 require_relative "../models/embed"
 require_relative "../models/guild"

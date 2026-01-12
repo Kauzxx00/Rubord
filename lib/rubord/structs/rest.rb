@@ -62,13 +62,8 @@ module Rubord
       json
     end
 
-    def send_message(channel_id, content: nil, embeds: nil, components: nil, flags: nil)
-      body = build_message_body(
-        content: content,
-        embeds: embeds,
-        components: components,
-        flags: flags
-      )
+    def send_message(channel_id, **opts)
+      body = build_message_body(**opts)
 
       request(:post, "/channels/#{channel_id}/messages", body: body)
     end
@@ -141,12 +136,48 @@ module Rubord
       )
     end
 
+    def interaction_followup(application_id, token, **opts)
+      body = build_message_body(**opts)
+
+      request(
+        :post,
+        "/webhooks/#{application_id}/#{token}",
+        body: body
+      )
+    end
+
     def build_message_body(content: nil, embeds: nil, components: nil, flags: nil)
       body = {}
-      body[:content]    = content if content
-      body[:embeds]     = Array(embeds).map(&:to_h) if embeds
+
+      resolved_flags =
+        case flags
+        when Array
+          Rubord::MessageFlags.combine(*flags)
+        when Symbol
+          Rubord::MessageFlags.combine(flags)
+        when Integer
+          flags
+        else
+          nil
+        end
+
+      is_components_v2 =
+        resolved_flags &&
+        (resolved_flags & Rubord::MessageFlags::COMPONENTS_V2 != 0)
+
+      if is_components_v2
+        if content || embeds
+          raise ArgumentError,
+                "content/embeds cannot be used with Components V2. Use Rubord::Text or other components."
+        end
+      else
+        body[:content] = content if content
+        body[:embeds]  = Array(embeds).map(&:to_h) if embeds
+      end
+
       body[:components] = Array(components).map(&:to_h) if components
-      body[:flags]      = flags if flags
+      body[:flags]      = resolved_flags if resolved_flags
+
       body
     end
   end
