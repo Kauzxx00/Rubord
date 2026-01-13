@@ -6,5 +6,5 @@ require_relative "rubord/structs/rest"
 require_relative "rubord/structs/parser"
 
 module Rubord
-  VERSION = "0.0.1"
+  VERSION = "0.1.0"
 end
