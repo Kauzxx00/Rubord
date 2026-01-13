@@ -56,7 +56,7 @@ module Rubord
       json = JSON.parse(res.body)
 
       unless res.is_a?(Net::HTTPSuccess)
-        raise StandardError, "HTTP #{res.code}: #{json}"
+        raise StandardError, "HTTP #{res.code}: #{json['message'] || json}"
       end
 
       json
@@ -167,8 +167,7 @@ module Rubord
 
       if is_components_v2
         if content || embeds
-          raise ArgumentError,
-                "content/embeds cannot be used with Components V2. Use Rubord::Text or other components."
+          raise ArgumentError, "content/embeds cannot be used with Components V2. Use Rubord::Text or other components."
         end
       else
         body[:content] = content if content
