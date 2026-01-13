@@ -10,3 +10,8 @@ require_relative "../models/user"
 require_relative "../models/collection"
 require_relative "../models/flags"
 require_relative "../models/interaction"
+
+module Rubord
+  class GatewayError < StandardError; end
+  class InvalidTokenError < GatewayError; end
+end
