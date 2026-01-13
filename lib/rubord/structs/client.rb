@@ -61,7 +61,7 @@ module Rubord
     end
 
     def login(token)
-      raise "Token não pode ser vazio" if token.nil? || token.strip.empty?
+      raise InvalidTokenError, "Discord token cannot be empty" if token.nil? || token.strip.empty?
 
       @token = token
       @rest = Rubord::REST.new(token)
@@ -145,19 +145,7 @@ module Rubord
     end
 
     def parse_intents(intents)
-      return intents.to_i unless intents.is_a?(Array)
-
-      intents.reduce(0) do |sum, intent|
-        key = intent.to_sym
-        value = Rubord::Intents::FLAGS[key]
-
-        unless value
-          warn "[Rubord] Intenção desconhecida: #{intent.inspect}"
-          next sum
-        end
-
-        sum | value
-      end
+      Rubord::Intents.combine(intents)
     end
   end
 end
