@@ -10,6 +10,7 @@ require_relative "../models/user"
 require_relative "../models/collection"
 require_relative "../models/flags"
 require_relative "../models/interaction"
+require_relative "logger.rb"
 
 module Rubord
   class GatewayError < StandardError; end
