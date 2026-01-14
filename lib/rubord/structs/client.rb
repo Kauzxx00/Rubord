@@ -14,33 +14,30 @@ module Rubord
                 :guilds
 
     def initialize(prefix: "", intents: [])
-      @token     = nil
-      @intents   = parse_intents(intents)
-      @prefix    = prefix
+      @token = nil
+      @intents = parse_intents(intents)
+      @prefix = prefix
 
-      @rest      = nil
-      @gateway   = nil
+      @rest = nil
+      @gateway = nil
       @listeners = Hash.new { |h, k| h[k] = [] }
 
-      @user      = nil
-      @latency   = nil
+      @user = nil
+      @start_time = Time.now.to_i
       
-      @channels  = Rubord::Collection.new
-      @messages  = Rubord::Collection.new
-      @guilds    = Rubord::Collection.new
-      @users     = Rubord::Collection.new
+      @channels = Rubord::Collection.new
+      @messages = Rubord::Collection.new
+      @guilds = Rubord::Collection.new
+      @users = Rubord::Collection.new
     end
-
-    def users
-      @users
-    end
-
-    def guilds
-      @guilds
-    end
-
+    
     def latency
-      @gateway.latency
+      @gateway&.latency || 0
+    end
+
+    def uptime
+      return 0 unless @start_time
+      @start_time
     end
 
     def owner
@@ -56,8 +53,6 @@ module Rubord
       @users.set(:__owner__, owner)
 
       owner
-    rescue Rubord::HTTPError
-      nil
     end
 
     def login(token)
@@ -71,11 +66,13 @@ module Rubord
         handle_event(event, data)
       end
 
+      @start_time = Time.now.to_i
+
       self
     end
 
-    def start
-      @gateway&.join
+    def stop
+      @gateway&.close
     end
 
     def on(event, &block)
