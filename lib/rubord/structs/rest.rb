@@ -78,6 +78,16 @@ module Rubord
       request(:post, "/channels/#{channel_id}/messages", body: body)
     end
 
+    def edit_message(channel_id, message_id, **opts)
+      body = build_message_body(**opts)
+
+      request(:patch, "/channels/#{channel_id}/messages/#{message_id}", body: body)
+    end
+
+    def delete_message(channel_id, message_id)
+      request(:delete, "/channels/#{channel_id}/messages/#{message_id}")
+    end
+
     def get_channel(channel_id)
       request(:get, "/channels/#{channel_id}")
     end
