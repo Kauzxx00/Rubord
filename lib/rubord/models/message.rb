@@ -42,7 +42,7 @@ module Rubord
       guild.fetch_member(@author.id)
     end
 
-    def send(content = nil, embeds: nil, components: nil, flags: nil)
+    def post(content = nil, embeds: nil, components: nil, flags: nil)
       @client.rest.send_message(
         @channel_id,
         content: content,
@@ -60,6 +60,24 @@ module Rubord
         embeds: embeds,
         components: components,
         flags: flags
+      )
+    end
+
+    def edit(content = nil, embeds: nil, components: nil, flags: nil)
+      @client.rest.edit_message(
+        @channel_id,
+        @id,
+        content: content,
+        embeds: embeds,
+        components: components,
+        flags: flags
+      )
+    end
+
+    def delete
+      @client.rest.delete_message(
+        @channel_id,
+        @id
       )
     end
 
