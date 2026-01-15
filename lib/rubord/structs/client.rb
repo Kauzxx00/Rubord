@@ -1,18 +1,77 @@
 require_relative "rest"
 require_relative "gateway"
 
-module Rubord
-  class Client
-    attr_reader :rest,
-                :gateway,
-                :messages,
-                :channels,
-                :intents,
-                :prefix,
-                :user,
-                :users,
-                :guilds
 
+module Rubord
+  # Main client class for interacting with the Discord API.
+  #
+  # The Client serves as the primary interface for creating Discord bots
+  # and managing connections to the Discord Gateway and REST API.
+  #
+  # @example Creating a basic bot client
+  #   client = Rubord::Client.new(prefix: "!", intents: [:messages])
+  #   client.login("YOUR_BOT_TOKEN")
+  #
+  #   client.on(:ready) do |user|
+  #     puts "Logged in as #{user.username}"
+  #   end
+  #
+  #   client.on(:message_create) do |message|
+  #     if message.content.start_with?("!ping")
+  #       message.reply("Pong!")
+  #     end
+  #   end
+  #
+  # @since 1.0.0
+  # @see https://discord.com/developers/docs Discord Developer Documentation
+  class Client
+    # @return [Rubord::REST] The REST API client instance.
+    attr_reader :rest
+    
+    # @return [Rubord::Gateway] The WebSocket gateway connection instance.
+    attr_reader :gateway
+    
+    # @return [Rubord::Collection] Collection of cached messages.
+    attr_reader :messages
+    
+    # @return [Rubord::Collection] Collection of cached channels.
+    attr_reader :channels
+    
+    # @return [Integer] Bitwise value representing enabled Discord intents.
+    attr_reader :intents
+    
+    # @return [String] Command prefix for message-based commands.
+    attr_reader :prefix
+    
+    # @return [Rubord::User, nil] The bot user account, available after login.
+    attr_reader :user
+    
+    # @return [Rubord::Collection] Collection of cached users.
+    attr_reader :users
+    
+    # @return [Rubord::Collection] Collection of cached guilds (servers).
+    attr_reader :guilds
+
+    # @return [Rubord::Commands] Commands for the bot.
+    attr_reader :commands
+
+    # Initializes a new Discord client instance.
+    #
+    # @param prefix [String] The command prefix for message commands.
+    #   Default is empty string (no prefix required).
+    # @param intents [Array<Symbol, Integer>] Discord intents to enable.
+    #   Can be symbols (e.g., `:guilds`, `:messages`) or integer bit values.
+    #
+    # @example With prefix and intents
+    #   client = Rubord::Client.new(
+    #     prefix: "!",
+    #     intents: [:guilds, :guild_messages, :message_content]
+    #   )
+    #
+    # @example With minimal configuration
+    #   client = Rubord::Client.new
+    #
+    # @return [Rubord::Client] A new client instance.
     def initialize(prefix: "", intents: [])
       @token = nil
       @intents = parse_intents(intents)
@@ -24,6 +83,7 @@ module Rubord
 
       @user = nil
       @start_time = Time.now.to_i
+      @commands = Rubord::CommandRegistry.new
       
       @channels = Rubord::Collection.new
       @messages = Rubord::Collection.new
@@ -31,15 +91,38 @@ module Rubord
       @users = Rubord::Collection.new
     end
     
+    # Returns the current WebSocket gateway latency in milliseconds.
+    #
+    # @return [Integer] Gateway latency in ms, or 0 if not connected.
+    #
+    # @example
+    #   puts "Latency: #{client.latency}ms"
     def latency
       @gateway&.latency || 0
     end
 
+    # Returns the bot's uptime in seconds since login.
+    #
+    # @return [Integer] Uptime in seconds, or 0 if not logged in.
+    #
+    # @example
+    #   puts "Bot has been running for #{client.uptime} seconds"
     def uptime
       return 0 unless @start_time
-      @start_time
+      Time.now.to_i - @start_time
     end
 
+    # Retrieves the bot application's owner.
+    #
+    # This method fetches the application owner information from Discord
+    # and caches it for subsequent calls.
+    #
+    # @return [Rubord::User, nil] The application owner user object,
+    #   or nil if not logged in.
+    #
+    # @example
+    #   owner = client.owner
+    #   puts "Bot owned by: #{owner.username}"
     def owner
       return nil unless @user
 
@@ -55,6 +138,25 @@ module Rubord
       owner
     end
 
+    # Authenticates and connects to the Discord API.
+    #
+    # This method initializes the REST client, connects to the Gateway,
+    # and starts processing Discord events.
+    #
+    # @param token [String] The Discord bot token.
+    #   Format: "Bot YOUR_TOKEN_HERE" or just "YOUR_TOKEN_HERE".
+    #
+    # @return [Rubord::Client] Self for method chaining.
+    #
+    # @raise [InvalidTokenError] If the token is nil or empty.
+    #
+    # @example Basic login
+    #   client.login("Bot MTExODg0OTgxOTk0NzMxOTgwOA.G0L2QN.secret")
+    #
+    # @example With method chaining
+    #   client
+    #     .login(token)
+    #     .on(:ready) { |user| puts "Ready!" }
     def login(token)
       raise InvalidTokenError, "Discord token cannot be empty" if token.nil? || token.strip.empty?
 
@@ -71,14 +173,73 @@ module Rubord
       self
     end
 
+    # Gracefully disconnects from Discord and stops the client.
+    #
+    # This method closes the WebSocket connection and stops
+    # event processing.
+    #
+    # @return [void]
+    #
+    # @example
+    #   # Handle graceful shutdown
+    #   Signal.trap("INT") do
+    #     puts "Shutting down..."
+    #     client.stop
+    #     exit
+    #   end
     def stop
       @gateway&.close
     end
 
+    def on_ready(&block)
+      on(:ready, &block)
+    end
+
+    # @yieldparam message [Rubord::Message]
+    def on_message(&block)
+      on(:message_create, &block)
+    end
+
+    # @yieldparam interaction [Rubord::Interaction]
+    def on_interaction(&block)
+      on(:interaction_create, &block)
+    end
+
+    # Registers an event listener callback.
+    #
+    # @param event [Symbol, String] The event name to listen for.
+    #   Common events: `:ready`, `:message_create`, `:guild_create`, etc.
+    # @yield [*args] The block to execute when the event fires.
+    #   Block arguments vary by event type.
+    #
+    # @return [void]
+    #
+    # @example Listening for ready event
+    #   client.on(:ready) do |user|
+    #     puts "Logged in as #{user.username}"
+    #   end
+    #
+    # @example Listening for messages
+    #   client.on(:message_create) do |message|
+    #     if message.content == "ping"
+    #       message.reply("pong")
+    #     end
+    #   end
+    #
+    # @see #trigger For event triggering mechanism
     def on(event, &block)
       @listeners[event.to_sym] << block
     end
 
+    # Fetches a channel from Discord API and caches it.
+    #
+    # @param channel_id [String, Integer] The Discord channel ID to fetch.
+    #
+    # @return [Rubord::Channel] The channel object.
+    #
+    # @example
+    #   channel = client.fetch_channel("123456789012345678")
+    #   puts "Channel name: #{channel.name}"
     def fetch_channel(channel_id)
       data = @rest.get_channel(channel_id)
       channel = Rubord::Channel.new(data, self)
@@ -86,6 +247,16 @@ module Rubord
       channel
     end
 
+    # Fetches a message from Discord API and caches it.
+    #
+    # @param channel_id [String, Integer] The ID of the channel containing the message.
+    # @param message_id [String, Integer] The ID of the message to fetch.
+    #
+    # @return [Rubord::Message] The message object.
+    #
+    # @example
+    #   message = client.fetch_message("123456789012345678", "987654321098765432")
+    #   puts "Message content: #{message.content}"
     def fetch_message(channel_id, message_id)
       data = @rest.get_message(channel_id, message_id)
       msg = Rubord::Message.new(data, self)
@@ -95,6 +266,17 @@ module Rubord
 
     private
 
+    # Internal event handler for gateway events.
+    #
+    # This method processes raw gateway events, creates appropriate
+    # objects, updates caches, and triggers registered listeners.
+    #
+    # @param event [Symbol] The gateway event type.
+    # @param data [Hash] The event data from Discord.
+    #
+    # @return [void]
+    #
+    # @see #trigger
     def handle_event(event, data)
       case event
       when :ready
@@ -119,6 +301,8 @@ module Rubord
       when :message_create
         msg = Rubord::Message.new(data, self)
         @messages.set(msg.id, msg)
+
+        process_command(msg)
         trigger(:message_create, msg)
 
       when :interaction_create
@@ -129,18 +313,30 @@ module Rubord
       end
     end
 
-    def trigger(event, *args)
+    # Triggers all registered listeners for an event.
+    #
+    # @param event [Symbol] The event to trigger.
+    # @param args [Array] Arguments to pass to listeners.
+    #
+    # @return [void]
+    #
+    # @note Listeners can accept either `(client, *args)` or just `(*args)`
+    #   depending on their arity.
+    def trigger(event, payload)
       return unless @listeners[event]
 
       @listeners[event].each do |cb|
-        if cb.arity >= (args.size + 1) || cb.arity < 0
-          cb.call(self, *args)
-        else
-          cb.call(*args)
-        end
+        cb.call(payload)
       end
     end
 
+    # Parses and combines intent symbols/values into a bitwise integer.
+    #
+    # @param intents [Array<Symbol, Integer>] Array of intent symbols or values.
+    #
+    # @return [Integer] Combined bitwise intent value.
+    #
+    # @see Rubord::Intents.combine
     def parse_intents(intents)
       Rubord::Intents.combine(intents)
     end
