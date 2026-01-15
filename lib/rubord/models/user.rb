@@ -3,23 +3,19 @@ module Rubord
     attr_reader :id,
                 :username,
                 :globalname,
-                :discriminator, 
-                :bot
+                :discriminator,
+                :creationDate,
+                :bot,
+                :tag
 
     def initialize(data)
       @id             = data["id"]
       @username       = data["username"]
       @globalname     = data["global_name"]
       @discriminator  = data["discriminator"]
+      @creationDate   = ((@id.to_i >> 22) + 1420070400000) / 1000
       @bot            = data["bot"] || false
-    end
-
-    def bot?
-      @bot
-    end
-
-    def tag
-      "#{@username}##{@discriminator}"
+      @tag            = "#{@username}##{@discriminator}"
     end
   end
 end
