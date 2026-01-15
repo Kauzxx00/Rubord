@@ -44,7 +44,7 @@ module Rubord
       @member                 = Rubord::Member.new(member_data, client)
     end
 
-    def reply(content = nil, embeds: nil, components: nil, flags: nil)
+    def post(content = nil, embeds: nil, components: nil, flags: nil)
       data = {}
       data[:content] = content if content
       data[:embeds] = Array(embeds).map(&:to_h) if embeds
@@ -121,7 +121,7 @@ module Rubord
       @type == TYPES[:message_component]
     end
 
-    def is_a?(type)
+    def is_type?(type)
       component? && @data["component_type"] == COMPONENT_TYPES[type.to_sym]
     end
 
