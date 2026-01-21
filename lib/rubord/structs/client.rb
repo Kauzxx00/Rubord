@@ -266,6 +266,26 @@ module Rubord
 
     private
 
+  def process_command(message)
+    return if message.author.bot
+    return unless @prefix && !@prefix.empty?
+    return unless message.content.start_with?(@prefix)
+
+    input = message.content[@prefix.length..].strip
+    return if input.empty?
+
+    name, *args = input.split(/\s+/)
+    name.downcase!
+
+    command = @commands.get(name)
+    return unless command
+
+    command.run(message, args = args)
+  rescue => e
+    Rubord::Logger.warn "[Rubord:Command Error] #{e.class}: #{e.message}"
+    Rubord::Logger.warn e.backtrace.join("\n")
+  end
+
     # Internal event handler for gateway events.
     #
     # This method processes raw gateway events, creates appropriate

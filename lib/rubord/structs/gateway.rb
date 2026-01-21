@@ -48,10 +48,10 @@ module Rubord
 
         begin
           @ws = WebSocket::Client::Simple.connect(GATEWAY_URL, headers: {
-            "User-Agent" => "DiscordBot (https://github.com/yourusername/rubord, 1.0.0)",
+            "User-Agent" => "DiscordBot (https://github.com/kauzxx00/rubord, 1.0.0)",
           })
         rescue => e
-          Rubord::Logger.warn "[Rubord:Gateway] Failed to connect to Discord Gateway: #{e.message}"
+          Rubord::Logger.error "[Rubord:Gateway] Failed to connect to Discord Gateway: #{e.message}"
           schedule_reconnect
           return
         end

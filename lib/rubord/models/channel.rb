@@ -14,7 +14,7 @@ module Rubord
       client&.channels&.set(@id, self)
     end
 
-    def send(content = nil, embeds: nil, components: nil, flags: nil)
+    def post(content = nil, embeds: nil, components: nil, flags: nil)
       ensure_client!
 
       client.rest.send_message(

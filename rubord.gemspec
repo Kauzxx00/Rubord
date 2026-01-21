@@ -23,6 +23,6 @@ Gem::Specification.new do |spec|
 
   spec.require_paths = ["lib"]
 
-  spec.add_dependency "rest-client", ">= 2.0.0"
-  spec.add_dependency "websocket-client-simple", ">= 0.9.0"
+  spec.add_runtime_dependency "rest-client", "~> 2.0", ">= 2.0.0"
+  spec.add_runtime_dependency "websocket-client-simple", "~> 0.9", ">= 0.9.0"
 end
