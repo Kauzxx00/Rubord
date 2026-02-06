@@ -97,14 +97,25 @@ module Rubord
       request(:get, "/oauth2/applications/@me")
     end
 
-    def interactions_response(interaction_id, interaction_token, type:, data: nil)
-      body = { type: type }
-      body[:data] = data if data
+    def get_application_emojis(application_id)
+      request(:get, "/applications/#{application_id}/emojis")
+    end
+
+    def interactions_response(interaction_id, interaction_token, type: nil, **opts)
+      data = build_message_body(**opts)
+      body = {
+        type: type,
+        data: data
+      }
+      
       request(:post, "/interactions/#{interaction_id}/#{interaction_token}/callback", body: body)
     end
 
     def interaction_edit(application_id, token, **opts)
-      body = build_message_body(**opts)
+      data = build_message_body(**opts)
+      body = {
+        data: data
+      }
       request(:patch, "/webhooks/#{application_id}/#{token}/messages/@original", body: body)
     end
 
