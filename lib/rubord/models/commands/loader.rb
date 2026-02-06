@@ -1,7 +1,7 @@
 # loader.rb
 module Rubord
   class CommandLoader
-    def self.load(path, client, registry)
+    def self.load(path, client, registry, logCommands: true)
       full_path = File.expand_path(path)
       files = Dir["#{full_path}/**/*.rb"]
 
@@ -9,7 +9,7 @@ module Rubord
         begin
           Kernel.load(file)
         rescue => e
-          puts "[Rubord:Commands] ERRO ao carregar #{file}:"
+          puts "[Rubord:Commands] Error loading #{file}:"
           puts "  #{e.class}: #{e.message}"
         end
       end
@@ -25,7 +25,7 @@ module Rubord
 
       found_classes.each do |klass|
         begin
-          registry.register(klass, client)
+          registry.register(klass, client, logCommands)
         rescue => e
           puts "[Rubord:Commands] ERRO ao registrar #{klass}:"
           puts "  #{e.class}: #{e.message}"
