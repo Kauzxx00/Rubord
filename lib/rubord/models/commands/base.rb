@@ -18,17 +18,11 @@ module Rubord
       attr_reader :command_name,
                   :description_text,
                   :command_usage,
-                  :aliases_list,
-                  :cooldown_seconds,
-                  :guild_only_flag,
-                  :dm_only_flag
+                  :aliases_list
 
       def inherited(subclass)
         super
         subclass.instance_variable_set(:@aliases_list, [])
-        subclass.instance_variable_set(:@cooldown_seconds, 0)
-        subclass.instance_variable_set(:@guild_only_flag, false)
-        subclass.instance_variable_set(:@dm_only_flag, false)
       end
 
       def name(value)
@@ -41,18 +35,6 @@ module Rubord
 
       def aliases(*values)
         @aliases_list.concat(values.map(&:to_s))
-      end
-
-      def cooldown(seconds)
-        @cooldown_seconds = seconds.to_i
-      end
-
-      def guild_only(value = true)
-        @guild_only_flag = value
-      end
-
-      def dm_only(value = true)
-        @dm_only_flag = value
       end
 
       def validate!
@@ -82,19 +64,6 @@ module Rubord
       self.class.aliases_list
     end
 
-    # @return [Integer]
-    def cooldown
-      self.class.cooldown_seconds
-    end
-
-    def guild_only?
-      self.class.guild_only_flag
-    end
-
-    def dm_only?
-      self.class.dm_only_flag
-    end
-
     # Executes the command.
     #
     # @param message [Rubord::Message]
@@ -105,7 +74,11 @@ module Rubord
     end
 
     def inspect
-      "#<#{self.class} name=#{command_name.inspect}>"
+      attrs = []
+      attrs << "name=#{name.inspect}" if name
+      attrs << "aliases=#{aliases.inspect}" unless aliases.empty?
+
+      "#<#{self.class} #{attrs.join(' ')}>"
     end
   end
 end
