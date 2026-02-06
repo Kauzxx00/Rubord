@@ -3,6 +3,7 @@ module Rubord
     attr_reader :id,
                 :content,
                 :author,
+                :timestamp,
                 :channel_id,
                 :guild_id,
                 :channel,
@@ -14,6 +15,7 @@ module Rubord
       @content    = data["content"]
       @channel_id = data["channel_id"]
       @guild_id   = data["guild_id"]
+      @timestamp  = data["timestamp"] && Time.parse(data["timestamp"])
 
       @author = Rubord::User.new(data["author"])
       client.users.set(@author.id, @author)
