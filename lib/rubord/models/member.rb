@@ -3,8 +3,7 @@ module Rubord
     attr_reader :id,
                 :user,
                 :roles,
-                :guild_id,
-                :client
+                :guild_id
 
     def initialize(data, client)
       @client   = client
@@ -14,12 +13,12 @@ module Rubord
       @user = Rubord::User.new(data["user"])
       @id   = @user.id
 
-      client.users.set(@id, @user)
+      @client.users.set(@id, @user)
       guild&.members&.set(@id, self)
     end
 
     def guild
-      client.guilds.get(@guild_id)
+      @client.guilds.get(@guild_id)
     end
 
     def role_objects
