@@ -2,8 +2,7 @@ module Rubord
   class Channel
     attr_reader :id,
                 :name,
-                :type,
-                :client
+                :type
 
     def initialize(data, client)
       @id     = data["id"]
@@ -15,9 +14,7 @@ module Rubord
     end
 
     def post(content = nil, embeds: nil, components: nil, flags: nil)
-      ensure_client!
-
-      client.rest.send_message(
+      @client.rest.send_message(
         @id,
         content: content,
         embeds: embeds,
@@ -27,12 +24,12 @@ module Rubord
     end
 
     def fetch_message(message_id)
-      client.rest.get_message(@id, message_id)
+      @client.rest.get_message(@id, message_id)
     end
 
     def guild
-      return nil unless client && client.respond_to?(:guilds)
-      client.guilds.get(guild_id)
+      return nil unless @client && @client.respond_to?(:guilds)
+      @client.guilds.get(guild_id)
     end
 
     def text?
