@@ -206,8 +206,6 @@ module Rubord
           Rubord::Logger.warn "[Rubord:Gateway] Error in event handler for #{event_type}: #{e.message}"
           Rubord::Logger.warn e.full_message
         end
-      elsif event_type && !["PRESENCE_UPDATE", "TYPING_START", "GUILD_MEMBER_UPDATE"].include?(event_type)
-        Rubord::Logger.warn "[Rubord:Gateway] Unhandled event: #{event_type}"
       end
     end
 
