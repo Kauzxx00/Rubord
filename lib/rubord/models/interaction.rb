@@ -16,6 +16,7 @@ module Rubord
                 :application_id,
                 :type,
                 :data,
+                :values,
                 :guild_id,
                 :channel_id,
                 :member,
@@ -31,31 +32,32 @@ module Rubord
       @application_id = data["application_id"]
       @type           = data["type"]
       @data           = data["data"] || {}
+      @values         = data["data"] ? data["data"]["values"] : nil
       @guild_id       = data["guild_id"]
       @channel_id     = data["channel_id"]
       @token          = data["token"]
       @version        = data["version"]
-      @message        = if data["message"]
-                          Rubord::Message.new(data["message"], client)
-                        end
 
-      member_data             = data["member"]
-      member_data["guild_id"] = data["guild_id"]
-      @member                 = Rubord::Member.new(member_data, client)
+      @message        = Rubord::Message.new(data["message"], client) if data["message"]
+
+      user_data       = data["user"] || data.dig("member", "user")
+      @user           = Rubord::User.new(user_data) if user_data
+
+      if (member = data["member"])
+        member["guild_id"] = @guild_id
+        @member = Rubord::Member.new(member, client)
+      end
     end
 
-    def post(content = nil, embeds: nil, components: nil, flags: nil)
-      data = {}
-      data[:content] = content if content
-      data[:embeds] = Array(embeds).map(&:to_h) if embeds
-      data[:components] = Array(components).map(&:to_h) if components
-      data[:flags] = flags
-
+    def reply(content = nil, embeds: nil, components: nil, flags: nil)
       client.rest.interactions_response(
         @id,
         @token,
         type: 4,
-        data: data
+        content: content,
+        embeds: embeds,
+        components: components,
+        flags: flags
       )
     end
 
@@ -66,39 +68,19 @@ module Rubord
         content: content,
         embeds: embeds,
         components: components,
-        flags: ephemeral ? 64 : nil
+        flags: flags
       )
     end
 
-    def defer(flags: nil)
-      data = {}
-      data[:flags] = flags
-
+    def update(content = nil, embeds: nil, components: nil, flags: nil)
       client.rest.interactions_response(
         @id,
         @token,
-        type: 5,
-        data: data
-      )
-    end
-
-    def deferUpdate
-      client.rest.interactions_response(
-        @id,
-        @token,
-        type: 6
-      )
-    end
-
-    def update(content = nil, embeds: nil, components: nil)
-      deferUpdate
-
-      client.rest.interaction_edit(
-        @application_id,
-        @token,
+        type: 7,
         content: content,
         embeds: embeds,
-        components: components
+        components: components,
+        flags: flags
       )
     end
 
@@ -110,6 +92,23 @@ module Rubord
         embeds: embeds,
         components: components,
         flags: flags
+      )
+    end
+
+    def defer(ephemeral: false)
+      client.rest.interactions_response(
+        @id,
+        @token,
+        type: 5,
+        flags: ephemeral ? { flags: 64 } : nil
+      )
+    end
+
+    def deferUpdate
+      client.rest.interactions_response(
+        @id,
+        @token,
+        type: 6
       )
     end
 
