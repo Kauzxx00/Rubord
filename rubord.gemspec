@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
-require_relative "lib/rubord"
+$LOAD_PATH.push File.expand_path("lib", __dir__)
+require "rubord"
 
 Gem::Specification.new do |spec|
   spec.name          = "rubord"
@@ -16,13 +17,13 @@ Gem::Specification.new do |spec|
   spec.required_ruby_version = ">= 3.1"
 
   spec.files = Dir.glob(%w[
-    lib/**/* 
-    README.md 
+    lib/**/*
+    README.md
     LICENSE
   ])
 
   spec.require_paths = ["lib"]
 
-  spec.add_runtime_dependency "rest-client", "~> 2.0", ">= 2.0.0"
-  spec.add_runtime_dependency "websocket-client-simple", "~> 0.9", ">= 0.9.0"
+  spec.add_runtime_dependency "rest-client", "~> 2.0"
+  spec.add_runtime_dependency "websocket-client-simple", "~> 0.9"
 end
