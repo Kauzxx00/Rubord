@@ -55,6 +55,9 @@ module Rubord
     # @return [Rubord::Commands] Commands for the bot.
     attr_reader :commands
 
+    # @return [Array<Class>] Array of extended classes/modules.
+    attr_accessor :extends
+
     # Initializes a new Discord client instance.
     #
     # @param prefix [String] The command prefix for message commands.
@@ -109,33 +112,16 @@ module Rubord
     #   puts "Bot has been running for #{client.uptime} seconds"
     def uptime
       return 0 unless @start_time
-      Time.now.to_i - @start_time
+      @start_time
     end
 
-    # Retrieves the bot application's owner.
-    #
-    # This method fetches the application owner information from Discord
-    # and caches it for subsequent calls.
-    #
-    # @return [Rubord::User, nil] The application owner user object,
-    #   or nil if not logged in.
-    #
-    # @example
-    #   owner = client.owner
-    #   puts "Bot owned by: #{owner.username}"
-    def owner
+    def application
       return nil unless @user
 
-      cached = @users.get(:__owner__)
-      return cached if cached
-
-      data = @rest.get_application
-      owner = Rubord::User.new(data["owner"])
-
-      @users.set(owner.id, owner)
-      @users.set(:__owner__, owner)
-
-      owner
+      @application ||= begin
+        data = @rest.get_application
+        Rubord::Application.new(data, self)
+      end
     end
 
     # Authenticates and connects to the Discord API.
