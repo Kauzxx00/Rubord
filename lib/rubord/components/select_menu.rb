@@ -136,7 +136,7 @@ module Rubord
 
   # Factory method for creating SelectMenu instances.
   #
-  # @param args [Hash] Select menu initialization parameters.
+  # @param args [SelectMenu] Select menu initialization parameters.
   # @return [Rubord::SelectMenu] New select menu instance.
   #
   # @example
