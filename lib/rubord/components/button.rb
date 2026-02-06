@@ -119,7 +119,14 @@ module Rubord
   #
   # @example
   #   button = Rubord.Button(label: "Click", custom_id: "click")
-  def self.Button(**args)
-    Button.new(**args)
+  def self.Button(label:, style: 1, custom_id: nil, url: nil, disabled: false, emoji: nil)
+    Button.new(
+      label: label,
+      style: style,
+      custom_id: custom_id,
+      url: url,
+      disabled: disabled,
+      emoji: emoji
+    )
   end
 end
