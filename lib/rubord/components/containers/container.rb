@@ -9,7 +9,7 @@ module Rubord
         super(17)
         @color = Rubord.Parser.color(color)
         @components = []
-        components.each { |c| add(c) }
+        components.compact.each { |c| add(c) }
       end
 
       def add(component)
@@ -24,7 +24,7 @@ module Rubord
       def to_h
         payload = {
           type: @type,
-          components: @components.map(&:to_h)
+          components: @components.map(&:to_h).compact
         }
 
         payload[:accent_color] = @color if @color
