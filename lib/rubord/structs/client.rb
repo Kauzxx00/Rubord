@@ -255,7 +255,7 @@ module Rubord
   def process_command(message)
     return if message.author.bot
     return unless @prefix && !@prefix.empty?
-    return unless message.content.start_with?(@prefix)
+    return unless message.content.downcase.start_with?(@prefix)
 
     input = message.content[@prefix.length..].strip
     return if input.empty?

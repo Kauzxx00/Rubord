@@ -80,7 +80,7 @@ module Rubord
     #     custom_id: "delete_btn",
     #     disabled: true
     #   )
-    def initialize(label:, style: 1, custom_id: nil, url: nil, disabled: false, emoji: nil)
+    def initialize(label: nil, style: 1, custom_id: nil, url: nil, disabled: false, emoji: nil)
       @type = 2
       @style = style
       @label = label
@@ -119,7 +119,7 @@ module Rubord
   #
   # @example
   #   button = Rubord.Button(label: "Click", custom_id: "click")
-  def self.Button(label:, style: 1, custom_id: nil, url: nil, disabled: false, emoji: nil)
+  def self.Button(label: nil, style: 1, custom_id: nil, url: nil, disabled: false, emoji: nil)
     Button.new(
       label: label,
       style: style,

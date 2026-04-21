@@ -4,18 +4,6 @@ require "openssl"
 require "json"
 require_relative "rate_limiter"
 
-if ENV["TERMUX_VERSION"]
-  OpenSSL::SSL::SSLContext::DEFAULT_PARAMS[:verify_mode] =
-    OpenSSL::SSL::VERIFY_PEER
-
-  OpenSSL::SSL::SSLContext::DEFAULT_PARAMS[:verify_callback] =
-    proc do |preverify_ok, ssl_ctx|
-      return true if preverify_ok
-
-      ssl_ctx.error == OpenSSL::X509::V_ERR_UNABLE_TO_GET_CRL
-    end
-end
-
 module Rubord
   class REST
     BASE_URL = "https://discord.com/api/v10"
@@ -162,8 +150,6 @@ module Rubord
       parse_response(res)
     end
 
-    # ========== MÉTODO REQUEST PÚBLICO ==========
-    
     def request(method, path, body: nil, retries: MAX_RETRIES)
       route = extract_route(method, path)
       uri = URI("#{BASE_URL}#{path}")
@@ -205,7 +191,6 @@ module Rubord
       end
     end
 
-    # ========== MÉTODOS PRIVADOS ==========
     private
 
     # Extract route identifier for rate limiting
@@ -216,15 +201,41 @@ module Rubord
     end
 
     # Send HTTP request with connection pooling
-    def send_http_request(uri, req)
-      http = @http_pool[uri.host] ||= Net::HTTP.new(uri.hostname, uri.port)
-      http.use_ssl = uri.scheme == "https"
-      http.read_timeout = 30
-      http.open_timeout = 10
-      
-      http.start unless http.started?
-      http.request(req)
+def send_http_request(uri, req)
+  http = @http_pool[uri.host] ||= Net::HTTP.new(uri.hostname, uri.port)
+  http.use_ssl = uri.scheme == "https"
+  
+  if http.use_ssl? && ENV["TERMUX_VERSION"]
+    # Caminhos comuns de certificados no Termux
+    possible_certs = [
+      "/data/data/com.termux/files/usr/etc/tls/cert.pem",
+      "/system/etc/security/cacerts" # Fallback para o Android system
+    ]
+    
+    cert_found = false
+    possible_certs.each do |path|
+      if File.exist?(path)
+        if File.directory?(path)
+          http.ca_path = path
+        else
+          http.ca_file = path
+        end
+        cert_found = true
+        break
+      end
     end
+
+    # Se mesmo com ca-certificates instalado der erro, forçamos o modo
+    # Isso resolve o erro "exception in verify_callback is ignored"
+    http.verify_mode = OpenSSL::SSL::VERIFY_NONE unless cert_found
+  end
+
+  http.read_timeout = 30
+  http.open_timeout = 10
+  
+  http.start unless http.started?
+  http.request(req)
+end
 
     # Handle rate limit response (429)
     def handle_rate_limit_response(res, route, method, path, body, retries)
