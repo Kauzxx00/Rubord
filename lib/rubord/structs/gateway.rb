@@ -2,6 +2,9 @@ require "websocket-client-simple"
 require "json"
 require "timeout"
 
+Encoding.default_external = Encoding::UTF_8
+Encoding.default_internal = Encoding::UTF_8
+
 module Rubord
   class Gateway
     GATEWAY_URL = "wss://gateway.discord.gg/?v=10&encoding=json"
@@ -14,7 +17,6 @@ module Rubord
     OPCODE_RECONNECT = 7
     OPCODE_INVALID_SESSION = 9
 
-    
     attr_reader :latency, :session_id, :seq
 
     def initialize(token, intents)
@@ -25,57 +27,56 @@ module Rubord
       @ws = nil
       @stopping = false
       @connected = false
-
       @heartbeat_interval = nil
       @last_heartbeat_at = nil
       @latency = 0
       @heartbeat_thread = nil
-      @event_handlers = {}
-
       @mutex = Mutex.new
+      @reconnecting = false
     end
 
     def connect(&block)
-      @mutex.synchronize do
-        return if @connected && !@stopping
+      return if @connected && !@stopping
 
-        if @token.nil? || @token.strip.empty?
-          raise InvalidTokenError, "Discord token cannot be empty"
-        end
-
-        @stopping = false
-        @connected = false
-
-        begin
-          @ws = WebSocket::Client::Simple.connect(GATEWAY_URL, headers: {
-            "User-Agent" => "DiscordBot (https://github.com/kauzxx00/rubord, 1.0.0)",
-          })
-        rescue => e
-          Rubord::Logger.error "[Rubord:Gateway] Failed to connect to Discord Gateway: #{e.message}"
-          schedule_reconnect
-          return
-        end
-
-        gateway_instance = self
-
-        @ws.on(:open) do
-          gateway_instance.handle_open
-        end
-
-        @ws.on(:message) do |event|
-          gateway_instance.handle_message(event, &block)
-        end
-
-        @ws.on(:close) do |event|
-          gateway_instance.handle_close(event)
-        end
-
-        @ws.on(:error) do |e|
-          gateway_instance.handle_error(e)
-        end
+      if @token.nil? || @token.strip.empty?
+        raise InvalidTokenError, "Discord token cannot be empty"
       end
 
-      sleep 1 while !@stopping
+      @stopping = false
+      @connected = false
+
+      begin
+        @ws = WebSocket::Client::Simple.connect(GATEWAY_URL, headers: {
+          "User-Agent" => "DiscordBot (https://github.com/kauzxx00/rubord, 1.0.0)"
+        })
+      rescue => e
+        Rubord::Logger.error "[Rubord:Gateway] Failed to connect to Discord Gateway: #{e.message}"
+        schedule_reconnect
+        return
+      end
+
+      gateway_instance = self
+
+      @ws.on(:open) do
+        gateway_instance.handle_open
+      end
+
+      @ws.on(:message) do |event|
+        gateway_instance.handle_message(event, &block)
+      end
+
+      @ws.on(:close) do |event|
+        gateway_instance.handle_close(event)
+      end
+
+      @ws.on(:error) do |e|
+        gateway_instance.handle_error(e)
+      end
+
+      loop do
+        break if @stopping
+        sleep 1
+      end
     end
 
     def handle_open
@@ -83,18 +84,13 @@ module Rubord
     end
 
     def handle_message(event, &block)
-      data = event.data.to_s
+      data = event.data.to_s.force_encoding("UTF-8")
 
-      if data.nil? || data.strip.empty?
-        Rubord::Logger.warn "[Rubord:Gateway] Received empty payload"
-        return
-      end
+      return if data.nil? || data.strip.empty?
 
       begin
         payload = JSON.parse(data)
-      rescue JSON::ParserError => e
-        Rubord::Logger.warn "[Rubord:Gateway] Failed to parse JSON: #{e.message}"
-        Rubord::Logger.warn "[Rubord:Gateway] Raw data: #{data.inspect[0..100]}" if data && data.length > 0
+      rescue
         return
       end
 
@@ -103,39 +99,30 @@ module Rubord
       d = payload["d"]
       s = payload["s"]
 
-      @mutex.synchronize do
-        @seq = s if s && s > 0
+      @seq = s if s
 
-        case op
-        when OPCODE_HELLO
-          handle_hello(d)
-        when OPCODE_HEARTBEAT_ACK
-          handle_heartbeat_ack
-        when OPCODE_RECONNECT
-          Rubord::Logger.warn "[Rubord:Gateway] Discord requested reconnect"
-          schedule_reconnect
-        when OPCODE_INVALID_SESSION
-          handle_invalid_session(d)
-        when OPCODE_DISPATCH
-          handle_dispatch(t, d, &block)
-        else
-          Rubord::Logger.warn "[Rubord:Gateway] Unhandled opcode: #{op}"
-        end
+      case op
+      when OPCODE_HELLO
+        handle_hello(d)
+      when OPCODE_HEARTBEAT_ACK
+        handle_heartbeat_ack
+      when OPCODE_RECONNECT
+        schedule_reconnect
+      when OPCODE_INVALID_SESSION
+        handle_invalid_session(d)
+      when OPCODE_DISPATCH
+        handle_dispatch(t, d, &block)
       end
     rescue => e
       Rubord::Logger.warn "[Rubord:Gateway] Error processing message: #{e.message}"
-      Rubord::Logger.warn e.backtrace.join("\n") if e.backtrace
     end
 
     def handle_close(event)
-      Rubord::Logger.warn "[Rubord:Gateway] WebSocket connection closed: code=#{event.code}, reason=#{event.reason}"
       cleanup_connection
       schedule_reconnect unless @stopping
     end
 
     def handle_error(e)
-      Rubord::Logger.warn "[Rubord:Gateway] WebSocket error: #{e.message}"
-      Rubord::Logger.warn e.backtrace.join("\n") if e.backtrace
       cleanup_connection
       schedule_reconnect unless @stopping
     end
@@ -144,10 +131,11 @@ module Rubord
       @heartbeat_interval = data["heartbeat_interval"].to_f / 1000.0
       @connected = true
 
+      start_heartbeat
+
       if @session_id && @seq
         resume_connection
       else
-        start_heartbeat
         identify
       end
     end
@@ -159,14 +147,10 @@ module Rubord
     end
 
     def handle_invalid_session(resumable)
-      Rubord::Logger.warn "[Rubord:Gateway] Invalid session (resumable: #{resumable})"
-
       if resumable && @session_id && @seq
-        Rubord::Logger.warn "[Rubord:Gateway] Attempting to resume session"
         sleep rand(1..3)
-        identify
+        resume_connection
       else
-        Rubord::Logger.warn "[Rubord:Gateway] Starting new session"
         @session_id = nil
         @seq = nil
         sleep rand(1..5)
@@ -194,7 +178,7 @@ module Rubord
         "MESSAGE_REACTION_ADD" => :reaction_add,
         "MESSAGE_REACTION_REMOVE" => :reaction_remove,
         "TYPING_START" => :typing_start,
-        "PRESENCE_UPDATE" => :presence_update,
+        "PRESENCE_UPDATE" => :presence_update
       }
 
       event_symbol = event_map[event_type]
@@ -202,9 +186,7 @@ module Rubord
       if event_symbol && block_given?
         begin
           block.call(event_symbol, data)
-        rescue => e
-          Rubord::Logger.warn "[Rubord:Gateway] Error in event handler for #{event_type}: #{e.message}"
-          Rubord::Logger.warn e.full_message
+        rescue
         end
       end
     end
@@ -218,27 +200,25 @@ module Rubord
           properties: {
             "$os": "linux",
             "$browser": "Rubord",
-            "$device": "Rubord",
+            "$device": "Rubord"
           },
           compress: false,
           large_threshold: 250,
-          shard: [0, 1],
-        },
+          shard: [0, 1]
+        }
       }
 
       send_payload(payload)
     end
 
     def resume_connection
-      Rubord::Logger.warn "[Rubord:Gateway] Attempting to resume session #{@session_id} at seq #{@seq}"
-
       payload = {
         op: 6,
         d: {
           token: @token,
           session_id: @session_id,
-          seq: @seq,
-        },
+          seq: @seq
+        }
       }
 
       send_payload(payload)
@@ -250,28 +230,21 @@ module Rubord
       @heartbeat_thread&.kill rescue nil
 
       @heartbeat_thread = Thread.new do
-        while !@stopping && @connected
-          begin
-            sleep @heartbeat_interval
+        loop do
+          break if @stopping || !@connected
 
-            break if @stopping || !@connected
+          sleep @heartbeat_interval
 
-            if @last_heartbeat_at && (Time.now - @last_heartbeat_at) > (@heartbeat_interval * 3)
-              Rubord::Logger.warn "[Rubord:Gateway] No heartbeat ACK received, reconnecting..."
-              schedule_reconnect
-              break
-            end
-
-            heartbeat_payload = { op: OPCODE_HEARTBEAT, d: @seq }
-            @last_heartbeat_at = Time.now
-            send_payload(heartbeat_payload)
-
-            Rubord::Logger.warn "[Rubord:Gateway] Sent heartbeat (seq: #{@seq})" if ENV["DEBUG"]
-          rescue => e
-            Rubord::Logger.warn "[Rubord:Gateway] Heartbeat error: #{e.message}"
+          if @last_heartbeat_at && (Time.now - @last_heartbeat_at) > (@heartbeat_interval * 3)
             schedule_reconnect
             break
           end
+
+          @last_heartbeat_at = Time.now
+          send_payload({ op: OPCODE_HEARTBEAT, d: @seq })
+        rescue
+          schedule_reconnect
+          break
         end
       end
     end
@@ -280,48 +253,38 @@ module Rubord
       return if @stopping || !@ws
 
       begin
-        json = payload.to_json
+        json = payload.to_json.force_encoding("UTF-8")
         @ws.send(json)
-
-        if ENV["DEBUG"]
-          opcode_name = case payload[:op] || payload["op"]
-            when 1 then "HEARTBEAT"
-            when 2 then "IDENTIFY"
-            when 6 then "RESUME"
-            else "OP#{payload[:op] || payload["op"]}"
-            end
-          Rubord::Logger.warn "[Rubord:Gateway] Sent #{opcode_name}"
-        end
-      rescue => e
-        Rubord::Logger.warn "[Rubord:Gateway] Failed to send payload: #{e.message}"
+      rescue
         schedule_reconnect
       end
     end
 
     def schedule_reconnect
-      return if @stopping
+      return if @stopping || @reconnecting
+
+      @reconnecting = true
 
       Thread.new do
-        @mutex.synchronize do
-          cleanup_connection
+        delay = 1
+        max_delay = 30
 
-          delay = 1
-          max_delay = 30
+        loop do
+          break if @stopping
 
-          while !@stopping
-            Rubord::Logger.warn "[Rubord:Gateway] Reconnecting in #{delay}s..."
-            sleep delay
+          sleep delay
 
-            begin
-              connect
-              break if @connected
-            rescue => e
-              Rubord::Logger.warn "[Rubord:Gateway] Reconnect failed: #{e.message}"
-            end
-
-            delay = [delay * 2, max_delay].min
+          begin
+            cleanup_connection
+            connect
+            break if @connected
+          rescue
           end
+
+          delay = [delay * 2, max_delay].min
         end
+
+        @reconnecting = false
       end
     end
 
@@ -332,26 +295,20 @@ module Rubord
       @heartbeat_thread = nil
 
       begin
-        @ws&.close if @ws.respond_to?(:close)
+        @ws&.close
       rescue
       end
+
       @ws = nil
     end
 
     def reconnect
-      Rubord::Logger.warn "[Rubord:Gateway] Manual reconnect requested"
       schedule_reconnect
     end
 
     def disconnect
-      Rubord::Logger.warn "[Rubord:Gateway] Disconnecting..."
-
-      @mutex.synchronize do
-        @stopping = true
-        @connected = false
-
-        cleanup_connection
-      end
+      @stopping = true
+      cleanup_connection
     end
 
     def connected?

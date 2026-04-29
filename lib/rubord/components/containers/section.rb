@@ -3,17 +3,18 @@ require_relative "base"
 module Rubord
   module Components
     class Section < BaseComponent
-      def initialize(text:, accessory: nil)
+      def initialize(components:, accessory: nil)
         super(9)
-        @text = text
+        @components = components
         @accessory = accessory
       end
 
       def to_h
         h = {
           type: @type,
-          text: @text.is_a?(String) ? { type: 10, content: @text } : @text.to_h
+          components: @components.map(&:to_h).compact
         }
+
         h[:accessory] = @accessory.to_h if @accessory
         h
       end
